@@ -1,0 +1,4 @@
+".\Objects\STARTUP.obj",
+".\Objects\timing_charge.obj" 
+TO ".\Objects\timing_charge" 
+PRINT(".\Listings\timing_charge.m51") RAMSIZE(256) 

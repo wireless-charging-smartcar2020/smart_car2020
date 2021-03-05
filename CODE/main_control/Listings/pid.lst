@@ -1,0 +1,74 @@
+C51 COMPILER V9.57.0.0   PID                                                               02/09/2021 12:50:38 PAGE 1   
+
+
+C51 COMPILER V9.57.0.0, COMPILATION OF MODULE PID
+OBJECT MODULE PLACED IN .\Objects\pid.obj
+COMPILER INVOKED BY: F:\MDK5.21A\C51\BIN\C51.EXE pid.c OPTIMIZE(8,SPEED) BROWSE INCDIR(..\main_control) DEBUG OBJECTEXTE
+                    -ND PRINT(.\Listings\pid.lst) TABS(2) OBJECT(.\Objects\pid.obj)
+
+line level    source
+
+   1          #include "pid.h"
+   2          
+   3          
+   4          struct pid_typedef pid1,pid2;
+   5          
+   6          float pid_position_type(struct pid_typedef *pid,float desired,float actual)//pid参数，期望值，实际值
+   7          {
+   8   1        pid->dx = desired - actual;
+   9   1        pid->f_dx = pid->dx*pid->kp + pid->sum_dx*pid->ki + (pid->dx-pid->previous_dx)*pid->kd;
+  10   1        pid->sum_dx += pid->dx;
+  11   1        pid->previous_dx = pid->dx;
+  12   1      //      if(pid->sum_dx>3000)pid->sum_dx=3000;
+  13   1      //      if(pid->sum_dx<-3000)pid->sum_dx=-3000;
+  14   1        return pid->f_dx;
+  15   1      }
+  16          float pid_increment_type(struct pid_typedef *pid,float desired,float actual)//pid参数，期望值，实际值
+  17          {
+  18   1        pid->dx = desired - actual;
+  19   1        pid->f_dx = (pid->dx-pid->previous_dx)*pid->kp + pid->dx*pid->ki 
+  20   1                    + (pid->dx-2*pid->previous_dx+pid->pre_previous_dx)*pid->kd;
+  21   1        pid->pre_previous_dx = pid->previous_dx;
+  22   1        pid->previous_dx = pid->dx;
+  23   1      
+  24   1        return pid->f_dx;
+  25   1      }
+  26          void pid_deinit(struct pid_typedef *pid)
+  27          {
+  28   1        pid->sum_dx=0;
+  29   1        pid->previous_dx=0;
+  30   1        pid->pre_previous_dx=0;
+  31   1      }
+  32          void pid_init()
+  33          {
+  34   1        pid1.kp=0.1;
+  35   1        pid1.ki=0.05;
+  36   1        pid1.kd=0;
+  37   1        pid1.sum_dx=0;
+  38   1        pid1.previous_dx=0;
+  39   1        pid1.pre_previous_dx=0;
+  40   1        
+  41   1        pid2.kp=1;
+  42   1        pid2.ki=0.5;
+  43   1        pid2.kd=1;
+  44   1        pid2.sum_dx=0;
+  45   1        pid2.previous_dx=0;
+  46   1        pid2.pre_previous_dx=0;
+  47   1      }
+  48          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    637    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+C51 COMPILER V9.57.0.0   PID                                                               02/09/2021 12:50:38 PAGE 2   
+
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     64      22
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

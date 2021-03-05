@@ -1,0 +1,18 @@
+C51 COMPILER V9.57.0.0   GT20L16S1Y____________                                            12/21/2020 16:48:58 PAGE 1   
+
+
+C51 COMPILER V9.57.0.0, COMPILATION OF MODULE GT20L16S1Y____________
+OBJECT MODULE PLACED IN .\Objects\GT20L16S1Yµ÷ÓÃº¯Êý³ÌÐò.obj
+COMPILER INVOKED BY: F:\MDK5.21A\C51\BIN\C51.EXE C:\Users\16242\Desktop\×Ü215CÐÂ¿îÄ£¿éIIC½Ó¿Ú215Z\GT20L16S1Yµ÷ÓÃº¯Êý³ÌÐò
+                    -.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\GT20L16S1Yµ÷ÓÃº¯Êý³ÌÐò.lst) TABS(2) OBJECT(.\Objects\GT2
+                    -0L16S1Yµ÷ÓÃº¯Êý³ÌÐò.obj)
+
+line level    source
+
+*** WARNING C500 IN LINE 1 OF C:\Users\16242\Desktop\×Ü215CÐÂ¿îÄ£¿éIIC½Ó¿Ú215Z\GT20L16S1Yµ÷ÓÃº¯Ê³ÌÐò.c: LICENSE ERROR (R
+             -207(2): REGISTRY READ ERROR)
+
+*** ERROR C129 IN LINE 8 OF C:\Users\16242\Desktop\×Ü215CÐÂ¿îÄ£¿éIIC½Ó¿Ú215Z\GT20L16S1Yµ÷ÓÃº¯Ê³ÌÐò.c: missing ';' before
+             - 'ASCII_GetData'
+
+C51 COMPILATION COMPLETE.  1 WARNING(S),  1 ERROR(S)

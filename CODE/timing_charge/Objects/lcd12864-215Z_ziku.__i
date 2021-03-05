@@ -1,0 +1,1 @@
+"..\资料\总215C新款模块IIC接口215Z\lcd12864-215Z_ziku.c" OPTIMIZE (8,SPEED) BROWSE INCDIR(..\timing_charge) DEBUG OBJECTEXTEND PRINT(.\Listings\lcd12864-215Z_ziku.lst) TABS (2) OBJECT(.\Objects\lcd12864-215Z_ziku.obj)

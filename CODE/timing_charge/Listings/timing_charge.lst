@@ -1,0 +1,496 @@
+C51 COMPILER V9.57.0.0   TIMING_CHARGE                                                     03/03/2021 17:29:48 PAGE 1   
+
+
+C51 COMPILER V9.57.0.0, COMPILATION OF MODULE TIMING_CHARGE
+OBJECT MODULE PLACED IN .\Objects\timing_charge.obj
+COMPILER INVOKED BY: F:\MDK5.21A\C51\BIN\C51.EXE timing_charge.c OPTIMIZE(8,SPEED) BROWSE INCDIR(..\timing_charge) DEBUG
+                    - OBJECTEXTEND PRINT(.\Listings\timing_charge.lst) TABS(2) OBJECT(.\Objects\timing_charge.obj)
+
+line level    source
+
+   1          #include <reg52.h>
+   2          #include <intrins.h>
+   3          
+   4          #include <ctype.h>
+   5          #define uchar unsigned char
+   6          #define uint unsigned int
+   7          #define ulong unsigned long
+   8          
+   9          #define CHARGE_TIME 6
+  10          uchar second=CHARGE_TIME;
+  11          uint num=0;
+  12          int persent=0;
+  13          
+  14          sbit Rom_CS=P2^5;//CSA,   //L 有效,字库片选
+  15          sbit LCD_CS1=P2^6;//CSB,    //L 有效,屏片选
+  16          sbit LCD_RES=P2^7;//RST,    //L 有效,屏复位
+  17          sbit LCD_RS=P4^1;//A0,    //L:command; H:data,命令/数据
+  18          sbit LCD_SCL=P1^1;//SCK,时钟   &字库IC的SCK
+  19          sbit LCD_SID=P1^2;//MISO,数据输入 &字库IC的SI
+  20          sbit Rom_OUT=P1^3;//MOSI,数据输出
+  21          sbit BL=P1^4;   //L 有效,背光控制
+  22          
+  23          sbit buzzer=P2^4;
+  24          sbit jidianqi=P2^3;
+  25          
+  26          uchar code bmp1[];
+  27          uchar str16x16[32];
+  28          uchar str8x16[16];
+  29          uchar str5x8[5];
+  30          
+  31          //延时
+  32          void delay(int n_ms)
+  33          {
+  34   1      int j,k;
+  35   1      for(j=0;j<n_ms;j++)
+  36   1      for(k=0;k<110;k++);
+  37   1      }
+  38          
+  39          //短延时
+  40          void delay_us(int n_us)
+  41          {
+  42   1      int j,k;
+  43   1      for(j=0;j<n_us;j++)
+  44   1      for(k=0;k<1;k++);
+  45   1      }
+  46          
+  47          //写指令到LCD 模块
+  48          void transfer_command_lcd(int data1)
+  49          {
+  50   1      char i;
+  51   1      LCD_CS1=0;
+  52   1      LCD_RS=0;
+  53   1      for(i=0;i<8;i++)
+  54   1      {
+C51 COMPILER V9.57.0.0   TIMING_CHARGE                                                     03/03/2021 17:29:48 PAGE 2   
+
+  55   2      LCD_SCL=0;
+  56   2      //delay_us(10); //加少量延时
+  57   2      if(data1&0x80) LCD_SID=1;
+  58   2      else LCD_SID=0;
+  59   2      _nop_();
+  60   2      LCD_SCL=1;
+  61   2      _nop_();
+  62   2      LCD_SCL=0;
+  63   2      //delay_us(10); //加少量延时
+  64   2      //data1=data1<<=1;
+  65   2        data1=(data1<<1);
+  66   2      }
+  67   1      LCD_CS1=1;
+  68   1      }
+  69          
+  70          //写数据到LCD 模块
+  71          void transfer_data_lcd(int data1)
+  72          {
+  73   1      char i;
+  74   1      
+  75   1      LCD_CS1=0;
+  76   1      LCD_RS=1;
+  77   1      for(i=0;i<8;i++)
+  78   1      {
+  79   2      LCD_SCL=0;
+  80   2      if(data1&0x80) LCD_SID=1;
+  81   2      else LCD_SID=0;
+  82   2      _nop_();
+  83   2      LCD_SCL=1;
+  84   2      _nop_();
+  85   2      LCD_SCL=0;
+  86   2      //data1=data1<<=1;
+  87   2        data1=(data1<<1);
+  88   2      }
+  89   1      LCD_CS1=1;
+  90   1      }
+  91          //LCD 模块初始化
+  92          void initial_lcd()
+  93          {
+  94   1      LCD_RES=0; //低电平复位
+  95   1      delay(100);
+  96   1      LCD_RES=1; //复位完毕
+  97   1      delay(100);
+  98   1      transfer_command_lcd(0xE2); //软复位
+  99   1      delay(5);
+ 100   1      transfer_command_lcd(0x2C); //升压步聚1
+ 101   1      delay(50);
+ 102   1      transfer_command_lcd(0x2E); //升压步聚2
+ 103   1      delay(50);
+ 104   1      transfer_command_lcd(0x2F); //升压步聚3
+ 105   1      delay(5);
+ 106   1      
+ 107   1      transfer_command_lcd(0xA2);//bias set:1/9
+ 108   1      transfer_command_lcd(0xA0);//ADC select:nomal);0->128
+ 109   1      transfer_command_lcd(0xC8);//commom output mode select: reverse
+ 110   1      transfer_command_lcd(0xA6);//normal/reverse  display
+ 111   1      transfer_command_lcd(0xF8);//booster ratio set
+ 112   1      transfer_command_lcd(0x00);//booster ratio:4x
+ 113   1      transfer_command_lcd(0x2F);//power control set
+ 114   1      transfer_command_lcd(0x26);//set (Rb/Ra)
+ 115   1      transfer_command_lcd(0x81);//vo output voltage set
+ 116   1      transfer_command_lcd(0x08);//voltage volume =9.0v
+C51 COMPILER V9.57.0.0   TIMING_CHARGE                                                     03/03/2021 17:29:48 PAGE 3   
+
+ 117   1      //0x40);//set start line
+ 118   1      transfer_command_lcd(0xAF);//display on
+ 119   1      }
+ 120          
+ 121          void lcd_address(uint page,uint column)
+ 122          {
+ 123   1      column=column-0x01;
+ 124   1      transfer_command_lcd(0xB0+page-1); //设置页地址，每8 行为一页，全屏共64 行，被分成8 页
+ 125   1      transfer_command_lcd(0x10+(column>>4&0x0F)); //设置列地址的高4 位
+ 126   1      transfer_command_lcd(column&0x0F); //设置列地址的低4 位
+ 127   1      }
+ 128          
+ 129          //全屏清屏
+ 130          void clear_screen()
+ 131          {
+ 132   1      unsigned char i,j;
+ 133   1      for(i=0;i<9;i++)
+ 134   1      {
+ 135   2      transfer_command_lcd(0xB0+i);
+ 136   2      transfer_command_lcd(0x10);
+ 137   2      transfer_command_lcd(0x00);
+ 138   2      for(j=0;j<132;j++)
+ 139   2      {
+ 140   3      transfer_data_lcd(0x00);
+ 141   3      }
+ 142   2      }
+ 143   1      }
+ 144          
+ 145          //满屏
+ 146          void fill_screen()
+ 147          {
+ 148   1      unsigned char i,j;
+ 149   1      for(i=0;i<9;i++)
+ 150   1      {
+ 151   2      transfer_command_lcd(0xB0+i);
+ 152   2      transfer_command_lcd(0x10);
+ 153   2      transfer_command_lcd(0x00);
+ 154   2      for(j=0;j<132;j++)
+ 155   2      {
+ 156   3      transfer_data_lcd(0xFF);
+ 157   3      }
+ 158   2      }
+ 159   1      }
+ 160          
+ 161          ////显示128x64 点阵图像
+ 162          //void display_128x64(uchar *dp)
+ 163          //{
+ 164          //uint i,j;
+ 165          //for(j=0;j<8;j++)
+ 166          //{
+ 167          //lcd_address(j+1,1);
+ 168          //for (i=0;i<128;i++)
+ 169          //{
+ 170          //transfer_data_lcd(*dp); //写数据到LCD,每写完一个8 位的数据后列地址自动加1
+ 171          //dp++;
+ 172          //}
+ 173          //}
+ 174          //}
+ 175          
+ 176          ////显示16x16 点阵图像、汉字、生僻字或16x16 点阵的其他图标
+ 177          //void display_graphic_16x16(uchar page,uchar column,uchar *dp)
+ 178          //{
+C51 COMPILER V9.57.0.0   TIMING_CHARGE                                                     03/03/2021 17:29:48 PAGE 4   
+
+ 179          //uint i,j;
+ 180          //for(j=0;j<2;j++)
+ 181          //{
+ 182          //lcd_address(page+j,column);
+ 183          //for (i=0;i<16;i++)
+ 184          //{
+ 185          //transfer_data_lcd(*dp); //写数据到LCD,每写完一个8 位的数据后列地址自动加1
+ 186          //dp++;
+ 187          //}
+ 188          //}
+ 189          //}
+ 190          ////显示8x16 点阵图像、ASCII, 或8x16 点阵的自造字符、其他图标
+ 191          //void display_graphic_8x16(uchar page,uchar column,uchar *dp)
+ 192          //{
+ 193          //uint i,j;
+ 194          //for(j=0;j<2;j++)
+ 195          //{
+ 196          //lcd_address(page+j,column);
+ 197          //for (i=0;i<8;i++)
+ 198          //{
+ 199          //transfer_data_lcd(*dp); //写数据到LCD,每写完一个8 位的数据后列地址自动加1
+ 200          //dp++;
+ 201          //}
+ 202          //}
+ 203          //}
+ 204          
+ 205          
+ 206          ////显示5X8 点阵图像、ASCII, 或5x8 点阵的自造字符、其他图标
+ 207          //void display_graphic_5x8(uchar page,uchar column,uchar *dp)
+ 208          //{
+ 209          //uint i;
+ 210          //lcd_address(page,column);
+ 211          //for (i=0;i<6;i++)
+ 212          //{
+ 213          //transfer_data_lcd(*dp);
+ 214          //dp++;
+ 215          //}
+ 216          //}
+ 217          
+ 218          //送指令到字库IC
+ 219          void send_command_to_ROM( uchar datu )
+ 220          {
+ 221   1      uchar i;
+ 222   1      for(i=0;i<8;i++ )
+ 223   1      {
+ 224   2      LCD_SCL=0;
+ 225   2      delay_us(10);
+ 226   2      if(datu&0x80)LCD_SID = 1;
+ 227   2      else LCD_SID = 0;
+ 228   2      datu = datu<<1;
+ 229   2      LCD_SCL=1;
+ 230   2      delay_us(10);
+ 231   2      }
+ 232   1      }
+ 233          
+ 234          //从字库IC 中取汉字或字符数据（1 个字节）
+ 235          static uchar get_data_from_ROM( )
+ 236          {
+ 237   1      uchar i;
+ 238   1      uchar ret_data=0;
+ 239   1      for(i=0;i<8;i++)
+ 240   1      {
+C51 COMPILER V9.57.0.0   TIMING_CHARGE                                                     03/03/2021 17:29:48 PAGE 5   
+
+ 241   2      //Rom_OUT=1;
+ 242   2      LCD_SCL=0;
+ 243   2      //delay_us(10);
+ 244   2      ret_data=ret_data<<1;
+ 245   2      if( Rom_OUT )
+ 246   2      ret_data=ret_data+1;
+ 247   2      else
+ 248   2      ret_data=ret_data+0;
+ 249   2      LCD_SCL=1;
+ 250   2      //delay_us(10);
+ 251   2      }
+ 252   1      Rom_OUT=0;
+ 253   1      return(ret_data);
+ 254   1      }
+ 255          
+ 256          //从指定地址读出数据写到液晶屏指定（page,column)座标中
+ 257          void get_and_write_16x16(ulong fontaddr,uchar page,uchar column)
+ 258          {
+ 259   1      uchar i,j,disp_data;
+ 260   1      Rom_CS = 0;
+ 261   1      send_command_to_ROM(0x03);
+ 262   1      send_command_to_ROM((fontaddr&0xff0000)>>16); //地址的高8 位,共24 位
+ 263   1      send_command_to_ROM((fontaddr&0xff00)>>8); //地址的中8 位,共24 位
+ 264   1      send_command_to_ROM(fontaddr&0xff); //地址的低8 位,共24 位
+ 265   1      for(i=0; i<32; i++ )
+ 266   1      {
+ 267   2      disp_data=get_data_from_ROM();
+ 268   2      str16x16[i]=disp_data;
+ 269   2      }
+ 270   1      Rom_CS=1;
+ 271   1      for(j=0;j<2;j++)
+ 272   1      {
+ 273   2      lcd_address(page+j,column);
+ 274   2      for(i=0; i<16; i++ )
+ 275   2      {
+ 276   3      disp_data=str16x16[16*j+i];
+ 277   3      transfer_data_lcd(disp_data); //写数据到LCD,每写完1 字节的数据后列地址自动加1
+ 278   3      }
+ 279   2      }
+ 280   1      }
+ 281          
+ 282          //从指定地址读出数据写到液晶屏指定（page,column)座标中
+ 283          void get_and_write_8x16(ulong fontaddr,uchar page,uchar column)
+ 284          {
+ 285   1      uchar i,j,disp_data;
+ 286   1      Rom_CS = 0;
+ 287   1      send_command_to_ROM(0x03);
+ 288   1      send_command_to_ROM((fontaddr&0xff0000)>>16); //地址的高8 位,共24 位
+ 289   1      send_command_to_ROM((fontaddr&0xff00)>>8); //地址的中8 位,共24 位
+ 290   1      send_command_to_ROM(fontaddr&0xff); //地址的低8 位,共24 位
+ 291   1      for(i=0; i<16; i++ )
+ 292   1      {
+ 293   2      disp_data=get_data_from_ROM();
+ 294   2      str8x16[i]=disp_data;
+ 295   2      }
+ 296   1      Rom_CS=1;
+ 297   1      for(j=0;j<2;j++)
+ 298   1      {
+ 299   2      lcd_address(page+j,column);
+ 300   2      for(i=0; i<8; i++ )
+ 301   2      {
+ 302   3      disp_data=str8x16[8*j+i];
+C51 COMPILER V9.57.0.0   TIMING_CHARGE                                                     03/03/2021 17:29:48 PAGE 6   
+
+ 303   3      transfer_data_lcd(disp_data); //写数据到LCD,每写完1 字节的数据后列地址自动加1
+ 304   3      }
+ 305   2      }
+ 306   1      }
+ 307          
+ 308          //从指定地址读出数据写到液晶屏指定（page,column)座标中
+ 309          void get_and_write_5x8(ulong fontaddr,uchar page,uchar column)
+ 310          {
+ 311   1      uchar i,disp_data;
+ 312   1      Rom_CS = 0;
+ 313   1      send_command_to_ROM(0x03);
+ 314   1      send_command_to_ROM((fontaddr&0xff0000)>>16); //地址的高8 位,共24 位
+ 315   1      send_command_to_ROM((fontaddr&0xff00)>>8); //地址的中8 位,共24 位
+ 316   1      send_command_to_ROM(fontaddr&0xff); //地址的低8 位,共24 位
+ 317   1      for(i=0; i<5; i++ )
+ 318   1      {
+ 319   2      disp_data=get_data_from_ROM();
+ 320   2      str5x8[i]=disp_data;
+ 321   2      }
+ 322   1      Rom_CS=1;
+ 323   1      lcd_address(page,column);
+ 324   1      for(i=0; i<5; i++ )
+ 325   1      {
+ 326   2      disp_data=str5x8[i];
+ 327   2      transfer_data_lcd(disp_data); //写数据到LCD,每写完1 字节的数据后列地址自动加1
+ 328   2      }
+ 329   1      }
+ 330          
+ 331          //---------------------
+ 332          ulong fontaddr=0;
+ 333          void display_GB2312_string(uchar page,uchar column,uchar *text)
+ 334          {
+ 335   1      uchar i= 0;
+ 336   1      while((text[i]>0x00))
+ 337   1      {
+ 338   2      if(((text[i]>=0xb0) &&(text[i]<=0xf7))&&(text[i+1]>=0xa1))
+ 339   2      {
+ 340   3      //国标简体（GB2312）汉字在字库IC 中的地址由以下公式来计算：
+ 341   3      //Address = ((MSB - 0xB0) * 94 + (LSB - 0xA1)+ 846)*32+ BaseAdd;BaseAdd=0
+ 342   3      //由于担心8 位单片机有乘法溢出问题，所以分三部取地址
+ 343   3      fontaddr = (text[i]- 0xb0)*94;
+ 344   3      fontaddr += (text[i+1]-0xa1)+846;
+ 345   3      fontaddr = (ulong)(fontaddr*32);
+ 346   3      get_and_write_16x16(fontaddr,page,column); //从指定地址读出数据写到液晶屏指定（page,column)座标中
+ 347   3      i+=2;
+ 348   3      column+=16;
+ 349   3      }
+ 350   2      else if(((text[i]>=0xa1) &&(text[i]<=0xa3))&&(text[i+1]>=0xa1))
+ 351   2      {
+ 352   3      //国标简体（GB2312）15x16 点的字符在字库IC 中的地址由以下公式来计算：
+ 353   3      //Address = ((MSB - 0xa1) * 94 + (LSB - 0xA1))*32+ BaseAdd;BaseAdd=0
+ 354   3      //由于担心8 位单片机有乘法溢出问题，所以分三部取地址
+ 355   3      fontaddr = (text[i]- 0xa1)*94;
+ 356   3      fontaddr += (text[i+1]-0xa1);
+ 357   3      fontaddr = (ulong)(fontaddr*32);
+ 358   3      get_and_write_16x16(fontaddr,page,column); //从指定地址读出数据写到液晶屏指定（page,column)座标中
+ 359   3      i+=2;
+ 360   3      column+=16;
+ 361   3      }
+ 362   2      else if((text[i]>=0x20) &&(text[i]<=0x7e))
+ 363   2      {
+ 364   3      fontaddr = (text[i]- 0x20);
+C51 COMPILER V9.57.0.0   TIMING_CHARGE                                                     03/03/2021 17:29:48 PAGE 7   
+
+ 365   3      fontaddr = (unsigned long)(fontaddr*16);
+ 366   3      fontaddr = (unsigned long)(fontaddr+0X3CF80);
+ 367   3      get_and_write_8x16(fontaddr,page,column); //从指定地址读出数据写到液晶屏指定（page,column)座标中
+ 368   3      i+=1;
+ 369   3      column+=8;
+ 370   3      }
+ 371   2      else
+ 372   2      i++;
+ 373   2      }
+ 374   1      }
+ 375          
+ 376          void display_string_5x8(uchar page,uchar column,uchar *text)
+ 377          {
+ 378   1      unsigned char i= 0;
+ 379   1      while((text[i]>0x00))
+ 380   1      {
+ 381   2      if((text[i]>=0x20) &&(text[i]<=0x7E))
+ 382   2      {
+ 383   3      fontaddr = (text[i]- 0x20);
+ 384   3      fontaddr = (unsigned long)(fontaddr*8);
+ 385   3      fontaddr = (unsigned long)(fontaddr+0x3bfc0);
+ 386   3      get_and_write_5x8(fontaddr,page,column); //从指定地址读出数据写到液晶屏指定（page,column)座标中
+ 387   3      i+=1;
+ 388   3      column+=6;
+ 389   3      }
+ 390   2      else
+ 391   2      i++;
+ 392   2      }
+ 393   1      }
+ 394          
+ 395          //===============main program===================
+ 396          
+ 397          char str[3];
+ 398          
+ 399          void main(void)
+ 400          {
+ 401   1        TMOD=0x01;
+ 402   1        TH0=(65536-46080)/256;
+ 403   1        TL0=(65536-46080)%256;
+ 404   1        EA=1;
+ 405   1        ET0=1;
+ 406   1        TR0=1;
+ 407   1        
+ 408   1        BL = 0;
+ 409   1        initial_lcd();
+ 410   1        clear_screen();
+ 411   1        
+ 412   1        display_GB2312_string(3,1,"...充电中..."); 
+ 413   1        display_GB2312_string(5,1,"进度："); 
+ 414   1      while(second>0)
+ 415   1      {
+ 416   2      
+ 417   2            persent=100-(float)second/CHARGE_TIME*100;
+ 418   2           str[0]=(persent/10)+'0';
+ 419   2           str[1]=(persent%10)+'0';
+ 420   2           str[2]='%';
+ 421   2              display_GB2312_string(7,1,str); 
+ 422   2            delay(1000);
+ 423   2            jidianqi=0;
+ 424   2      }
+ 425   1            if(second==0)     // 60  
+ 426   1            {
+C51 COMPILER V9.57.0.0   TIMING_CHARGE                                                     03/03/2021 17:29:48 PAGE 8   
+
+ 427   2              second=0; 
+ 428   2              clear_screen();
+ 429   2              display_GB2312_string(3,1,"充电完成"); 
+ 430   2              display_GB2312_string(5,1,"小车准备启动");
+ 431   2              delay(1000);
+ 432   2              buzzer=0;
+ 433   2              delay(1000);
+ 434   2              jidianqi=1;
+ 435   2              delay(1000);
+ 436   2              buzzer=1;
+ 437   2              clear_screen();
+ 438   2              BL = 1;
+ 439   2            while(1);
+ 440   2            }
+ 441   1      }
+ 442          
+ 443          /*
+ 444          50ms*20=1s
+ 445          0.05/(12/11059200)=46080
+ 446          */
+ 447          void T0_time() interrupt 1
+ 448          {
+ 449   1        TH0=(65536-46080)/256;
+ 450   1        TL0=(65536-46080)%256;
+ 451   1        num++;
+ 452   1        if(num==20)
+ 453   1        {
+ 454   2          num=0;
+ 455   2          if(second>0)
+ 456   2              second--;      
+ 457   2        }
+ 458   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1560    ----
+   CONSTANT SIZE    =     42    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     65      34
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

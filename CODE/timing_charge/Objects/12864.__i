@@ -1,0 +1,1 @@
+"12864.c" OPTIMIZE (8,SPEED) BROWSE INCDIR(..\timing_charge) DEBUG OBJECTEXTEND PRINT(.\Listings\12864.lst) TABS (2) OBJECT(.\Objects\12864.obj)

@@ -1,0 +1,605 @@
+C51 COMPILER V9.57.0.0   LCD12864_215Z_ZIKU                                                03/03/2021 15:30:54 PAGE 1   
+
+
+C51 COMPILER V9.57.0.0, COMPILATION OF MODULE LCD12864_215Z_ZIKU
+OBJECT MODULE PLACED IN .\Objects\lcd12864-215Z_ziku.obj
+COMPILER INVOKED BY: F:\MDK5.21A\C51\BIN\C51.EXE ..\资料\总215C新款模块IIC接口215Z\lcd12864-215Z_ziku.c OPTIMIZE(8,SPEED
+                    -) BROWSE INCDIR(..\timing_charge) DEBUG OBJECTEXTEND PRINT(.\Listings\lcd12864-215Z_ziku.lst) TABS(2) OBJECT(.\Objects\l
+                    -cd12864-215Z_ziku.obj)
+
+line level    source
+
+   1          //驱动 IC:UC1701  //Interfaces:SPI-4
+   2          //点阵数:128*64
+   3          #include <reg52.h>
+   4          #include <intrins.h>
+   5          
+   6          sbit Rom_CS=P2^5;//CSA,   //L 有效,字库片选
+   7          sbit LCD_CS1=P2^6;//CSB,    //L 有效,屏片选
+   8          sbit LCD_RES=P2^7;//RST,    //L 有效,屏复位
+   9          sbit LCD_RS=P4^1;//A0,    //L:command; H:data,命令/数据
+  10          sbit LCD_SCL=P1^1;//SCK,时钟   &字库IC的SCK
+  11          sbit LCD_SID=P1^2;//MISO,数据输入 &字库IC的SI
+  12          sbit Rom_OUT=P1^3;//MOSI,数据输出
+  13          sbit BL=P1^4;   //L 有效,背光控制
+  14          
+  15          sbit buzzer=P2^4;
+  16          //sbit Rom_CS=P1^4;   //L 有效,字库片选
+  17          //sbit LCD_CS1=P1^3;    //L 有效,屏片选
+  18          //sbit LCD_RES=P1^2;    //L 有效,屏复位 
+  19          //sbit LCD_RS=P1^1;   //L:command; H:data,命令/数据 
+  20          //sbit LCD_SCL =P1^0;//时钟   
+  21          //sbit LCD_SID=P4^2;//数据输入 
+  22          //sbit Rom_OUT =P0^0;//数据输出 
+  23          //sbit BL=P0^1;   //L 有效,背光控制 
+  24          
+  25          #define uchar unsigned char
+  26          #define uint unsigned int
+  27          #define ulong unsigned long
+  28          
+  29          uchar code bmp1[];
+  30          uchar str16x16[32];
+  31          uchar str8x16[16];
+  32          uchar str5x8[5];
+  33          uchar code jiong1[]={//-- 文字: 囧 --
+  34          //-- 宋体12; 此字体下对应的点阵为：宽x 高=16x16 --
+  35          0x00,0xFE,0x82,0x42,0xA2,0x9E,0x8A,0x82,0x86,0x8A,0xB2,0x62,0x02,0xFE,0x00,0x00,
+  36          0x00,0x7F,0x40,0x40,0x7F,0x40,0x40,0x40,0x40,0x40,0x7F,0x40,0x40,0x7F,0x00,0x00};
+  37          
+  38          uchar code lei1[]={//-- 文字: 畾 --
+  39          //-- 宋体12; 此字体下对应的点阵为：宽x 高=16x16 --
+  40          0x80,0x80,0x80,0xBF,0xA5,0xA5,0xA5,0x3F,0xA5,0xA5,0xA5,0xBF,0x80,0x80,0x80,0x00,
+  41          0x7F,0x24,0x24,0x3F,0x24,0x24,0x7F,0x00,0x7F,0x24,0x24,0x3F,0x24,0x24,0x7F,0x00};
+  42          
+  43          //延时
+  44          void delay(int n_ms)
+  45          {
+  46   1      int j,k;
+  47   1      for(j=0;j<n_ms;j++)
+  48   1      for(k=0;k<110;k++);
+  49   1      }
+  50          
+  51          //短延时
+  52          void delay_us(int n_us)
+  53          {
+C51 COMPILER V9.57.0.0   LCD12864_215Z_ZIKU                                                03/03/2021 15:30:54 PAGE 2   
+
+  54   1      int j,k;
+  55   1      for(j=0;j<n_us;j++)
+  56   1      for(k=0;k<1;k++);
+  57   1      }
+  58          
+  59          //写指令到LCD 模块
+  60          void transfer_command_lcd(int data1)
+  61          {
+  62   1      char i;
+  63   1      LCD_CS1=0;
+  64   1      LCD_RS=0;
+  65   1      for(i=0;i<8;i++)
+  66   1      {
+  67   2      LCD_SCL=0;
+  68   2      //delay_us(10); //加少量延时
+  69   2      if(data1&0x80) LCD_SID=1;
+  70   2      else LCD_SID=0;
+  71   2      _nop_();
+  72   2      LCD_SCL=1;
+  73   2      _nop_();
+  74   2      LCD_SCL=0;
+  75   2      //delay_us(10); //加少量延时
+  76   2      //data1=data1<<=1;
+  77   2        data1=(data1<<1);
+  78   2      }
+  79   1      LCD_CS1=1;
+  80   1      }
+  81          
+  82          //写数据到LCD 模块
+  83          void transfer_data_lcd(int data1)
+  84          {
+  85   1      char i;
+  86   1      
+  87   1      LCD_CS1=0;
+  88   1      LCD_RS=1;
+  89   1      for(i=0;i<8;i++)
+  90   1      {
+  91   2      LCD_SCL=0;
+  92   2      if(data1&0x80) LCD_SID=1;
+  93   2      else LCD_SID=0;
+  94   2      _nop_();
+  95   2      LCD_SCL=1;
+  96   2      _nop_();
+  97   2      LCD_SCL=0;
+  98   2      //data1=data1<<=1;
+  99   2        data1=(data1<<1);
+ 100   2      }
+ 101   1      LCD_CS1=1;
+ 102   1      }
+ 103          
+ 104          //LCD 模块初始化
+ 105          void initial_lcd()
+ 106          {
+ 107   1      LCD_RES=0; //低电平复位
+ 108   1      delay(100);
+ 109   1      LCD_RES=1; //复位完毕
+ 110   1      delay(100);
+ 111   1      transfer_command_lcd(0xE2); //软复位
+ 112   1      delay(5);
+ 113   1      transfer_command_lcd(0x2C); //升压步聚1
+ 114   1      delay(50);
+ 115   1      transfer_command_lcd(0x2E); //升压步聚2
+C51 COMPILER V9.57.0.0   LCD12864_215Z_ZIKU                                                03/03/2021 15:30:54 PAGE 3   
+
+ 116   1      delay(50);
+ 117   1      transfer_command_lcd(0x2F); //升压步聚3
+ 118   1      delay(5);
+ 119   1      
+ 120   1      transfer_command_lcd(0xA2);//bias set:1/9
+ 121   1      transfer_command_lcd(0xA0);//ADC select:nomal);0->128
+ 122   1      transfer_command_lcd(0xC8);//commom output mode select: reverse
+ 123   1      transfer_command_lcd(0xA6);//normal/reverse  display
+ 124   1      transfer_command_lcd(0xF8);//booster ratio set
+ 125   1      transfer_command_lcd(0x00);//booster ratio:4x
+ 126   1      transfer_command_lcd(0x2F);//power control set
+ 127   1      transfer_command_lcd(0x26);//set (Rb/Ra)
+ 128   1      transfer_command_lcd(0x81);//vo output voltage set
+ 129   1      transfer_command_lcd(0x08);//voltage volume =9.0v
+ 130   1      //0x40);//set start line
+ 131   1      transfer_command_lcd(0xAF);//display on
+ 132   1      }
+ 133          
+ 134          void lcd_address(uint page,uint column)
+ 135          {
+ 136   1      column=column-0x01;
+ 137   1      transfer_command_lcd(0xB0+page-1); //设置页地址，每8 行为一页，全屏共64 行，被分成8 页
+ 138   1      transfer_command_lcd(0x10+(column>>4&0x0F)); //设置列地址的高4 位
+ 139   1      transfer_command_lcd(column&0x0F); //设置列地址的低4 位
+ 140   1      }
+ 141          
+ 142          //全屏清屏
+ 143          void clear_screen()
+ 144          {
+ 145   1      unsigned char i,j;
+ 146   1      for(i=0;i<9;i++)
+ 147   1      {
+ 148   2      transfer_command_lcd(0xB0+i);
+ 149   2      transfer_command_lcd(0x10);
+ 150   2      transfer_command_lcd(0x00);
+ 151   2      for(j=0;j<132;j++)
+ 152   2      {
+ 153   3      transfer_data_lcd(0x00);
+ 154   3      }
+ 155   2      }
+ 156   1      }
+ 157          
+ 158          //满屏
+ 159          void fill_screen()
+ 160          {
+ 161   1      unsigned char i,j;
+ 162   1      for(i=0;i<9;i++)
+ 163   1      {
+ 164   2      transfer_command_lcd(0xB0+i);
+ 165   2      transfer_command_lcd(0x10);
+ 166   2      transfer_command_lcd(0x00);
+ 167   2      for(j=0;j<132;j++)
+ 168   2      {
+ 169   3      transfer_data_lcd(0xFF);
+ 170   3      }
+ 171   2      }
+ 172   1      }
+ 173          
+ 174          //显示128x64 点阵图像
+ 175          void display_128x64(uchar *dp)
+ 176          {
+ 177   1      uint i,j;
+C51 COMPILER V9.57.0.0   LCD12864_215Z_ZIKU                                                03/03/2021 15:30:54 PAGE 4   
+
+ 178   1      for(j=0;j<8;j++)
+ 179   1      {
+ 180   2      lcd_address(j+1,1);
+ 181   2      for (i=0;i<128;i++)
+ 182   2      {
+ 183   3      transfer_data_lcd(*dp); //写数据到LCD,每写完一个8 位的数据后列地址自动加1
+ 184   3      dp++;
+ 185   3      }
+ 186   2      }
+ 187   1      }
+ 188          
+ 189          //显示16x16 点阵图像、汉字、生僻字或16x16 点阵的其他图标
+ 190          void display_graphic_16x16(uchar page,uchar column,uchar *dp)
+ 191          {
+ 192   1      uint i,j;
+ 193   1      for(j=0;j<2;j++)
+ 194   1      {
+ 195   2      lcd_address(page+j,column);
+ 196   2      for (i=0;i<16;i++)
+ 197   2      {
+ 198   3      transfer_data_lcd(*dp); //写数据到LCD,每写完一个8 位的数据后列地址自动加1
+ 199   3      dp++;
+ 200   3      }
+ 201   2      }
+ 202   1      }
+ 203          //显示8x16 点阵图像、ASCII, 或8x16 点阵的自造字符、其他图标
+ 204          void display_graphic_8x16(uchar page,uchar column,uchar *dp)
+ 205          {
+ 206   1      uint i,j;
+ 207   1      for(j=0;j<2;j++)
+ 208   1      {
+ 209   2      lcd_address(page+j,column);
+ 210   2      for (i=0;i<8;i++)
+ 211   2      {
+ 212   3      transfer_data_lcd(*dp); //写数据到LCD,每写完一个8 位的数据后列地址自动加1
+ 213   3      dp++;
+ 214   3      }
+ 215   2      }
+ 216   1      }
+ 217          
+ 218          
+ 219          //显示5X8 点阵图像、ASCII, 或5x8 点阵的自造字符、其他图标
+ 220          void display_graphic_5x8(uchar page,uchar column,uchar *dp)
+ 221          {
+ 222   1      uint i;
+ 223   1      lcd_address(page,column);
+ 224   1      for (i=0;i<6;i++)
+ 225   1      {
+ 226   2      transfer_data_lcd(*dp);
+ 227   2      dp++;
+ 228   2      }
+ 229   1      }
+ 230          
+ 231          //送指令到字库IC
+ 232          void send_command_to_ROM( uchar datu )
+ 233          {
+ 234   1      uchar i;
+ 235   1      for(i=0;i<8;i++ )
+ 236   1      {
+ 237   2      LCD_SCL=0;
+ 238   2      delay_us(10);
+ 239   2      if(datu&0x80)LCD_SID = 1;
+C51 COMPILER V9.57.0.0   LCD12864_215Z_ZIKU                                                03/03/2021 15:30:54 PAGE 5   
+
+ 240   2      else LCD_SID = 0;
+ 241   2      datu = datu<<1;
+ 242   2      LCD_SCL=1;
+ 243   2      delay_us(10);
+ 244   2      }
+ 245   1      }
+ 246          
+ 247          //从字库IC 中取汉字或字符数据（1 个字节）
+ 248          static uchar get_data_from_ROM( )
+ 249          {
+ 250   1      uchar i;
+ 251   1      uchar ret_data=0;
+ 252   1      for(i=0;i<8;i++)
+ 253   1      {
+ 254   2      //Rom_OUT=1;
+ 255   2      LCD_SCL=0;
+ 256   2      //delay_us(10);
+ 257   2      ret_data=ret_data<<1;
+ 258   2      if( Rom_OUT )
+ 259   2      ret_data=ret_data+1;
+ 260   2      else
+ 261   2      ret_data=ret_data+0;
+ 262   2      LCD_SCL=1;
+ 263   2      //delay_us(10);
+ 264   2      }
+ 265   1      Rom_OUT=0;
+ 266   1      return(ret_data);
+ 267   1      }
+ 268          
+ 269          //从指定地址读出数据写到液晶屏指定（page,column)座标中
+ 270          void get_and_write_16x16(ulong fontaddr,uchar page,uchar column)
+ 271          {
+ 272   1      uchar i,j,disp_data;
+ 273   1      Rom_CS = 0;
+ 274   1      send_command_to_ROM(0x03);
+ 275   1      send_command_to_ROM((fontaddr&0xff0000)>>16); //地址的高8 位,共24 位
+ 276   1      send_command_to_ROM((fontaddr&0xff00)>>8); //地址的中8 位,共24 位
+ 277   1      send_command_to_ROM(fontaddr&0xff); //地址的低8 位,共24 位
+ 278   1      for(i=0; i<32; i++ )
+ 279   1      {
+ 280   2      disp_data=get_data_from_ROM();
+ 281   2      str16x16[i]=disp_data;
+ 282   2      }
+ 283   1      Rom_CS=1;
+ 284   1      for(j=0;j<2;j++)
+ 285   1      {
+ 286   2      lcd_address(page+j,column);
+ 287   2      for(i=0; i<16; i++ )
+ 288   2      {
+ 289   3      disp_data=str16x16[16*j+i];
+ 290   3      transfer_data_lcd(disp_data); //写数据到LCD,每写完1 字节的数据后列地址自动加1
+ 291   3      }
+ 292   2      }
+ 293   1      }
+ 294          
+ 295          //从指定地址读出数据写到液晶屏指定（page,column)座标中
+ 296          void get_and_write_8x16(ulong fontaddr,uchar page,uchar column)
+ 297          {
+ 298   1      uchar i,j,disp_data;
+ 299   1      Rom_CS = 0;
+ 300   1      send_command_to_ROM(0x03);
+ 301   1      send_command_to_ROM((fontaddr&0xff0000)>>16); //地址的高8 位,共24 位
+C51 COMPILER V9.57.0.0   LCD12864_215Z_ZIKU                                                03/03/2021 15:30:54 PAGE 6   
+
+ 302   1      send_command_to_ROM((fontaddr&0xff00)>>8); //地址的中8 位,共24 位
+ 303   1      send_command_to_ROM(fontaddr&0xff); //地址的低8 位,共24 位
+ 304   1      for(i=0; i<16; i++ )
+ 305   1      {
+ 306   2      disp_data=get_data_from_ROM();
+ 307   2      str8x16[i]=disp_data;
+ 308   2      }
+ 309   1      Rom_CS=1;
+ 310   1      for(j=0;j<2;j++)
+ 311   1      {
+ 312   2      lcd_address(page+j,column);
+ 313   2      for(i=0; i<8; i++ )
+ 314   2      {
+ 315   3      disp_data=str8x16[8*j+i];
+ 316   3      transfer_data_lcd(disp_data); //写数据到LCD,每写完1 字节的数据后列地址自动加1
+ 317   3      }
+ 318   2      }
+ 319   1      }
+ 320          
+ 321          //从指定地址读出数据写到液晶屏指定（page,column)座标中
+ 322          void get_and_write_5x8(ulong fontaddr,uchar page,uchar column)
+ 323          {
+ 324   1      uchar i,disp_data;
+ 325   1      Rom_CS = 0;
+ 326   1      send_command_to_ROM(0x03);
+ 327   1      send_command_to_ROM((fontaddr&0xff0000)>>16); //地址的高8 位,共24 位
+ 328   1      send_command_to_ROM((fontaddr&0xff00)>>8); //地址的中8 位,共24 位
+ 329   1      send_command_to_ROM(fontaddr&0xff); //地址的低8 位,共24 位
+ 330   1      for(i=0; i<5; i++ )
+ 331   1      {
+ 332   2      disp_data=get_data_from_ROM();
+ 333   2      str5x8[i]=disp_data;
+ 334   2      }
+ 335   1      Rom_CS=1;
+ 336   1      lcd_address(page,column);
+ 337   1      for(i=0; i<5; i++ )
+ 338   1      {
+ 339   2      disp_data=str5x8[i];
+ 340   2      transfer_data_lcd(disp_data); //写数据到LCD,每写完1 字节的数据后列地址自动加1
+ 341   2      }
+ 342   1      }
+ 343          
+ 344          //---------------------
+ 345          ulong fontaddr=0;
+ 346          void display_GB2312_string(uchar page,uchar column,uchar *text)
+ 347          {
+ 348   1      uchar i= 0;
+ 349   1      while((text[i]>0x00))
+ 350   1      {
+ 351   2      if(((text[i]>=0xb0) &&(text[i]<=0xf7))&&(text[i+1]>=0xa1))
+ 352   2      {
+ 353   3      //国标简体（GB2312）汉字在字库IC 中的地址由以下公式来计算：
+ 354   3      //Address = ((MSB - 0xB0) * 94 + (LSB - 0xA1)+ 846)*32+ BaseAdd;BaseAdd=0
+ 355   3      //由于担心8 位单片机有乘法溢出问题，所以分三部取地址
+ 356   3      fontaddr = (text[i]- 0xb0)*94;
+ 357   3      fontaddr += (text[i+1]-0xa1)+846;
+ 358   3      fontaddr = (ulong)(fontaddr*32);
+ 359   3      get_and_write_16x16(fontaddr,page,column); //从指定地址读出数据写到液晶屏指定（page,column)座标中
+ 360   3      i+=2;
+ 361   3      column+=16;
+ 362   3      }
+ 363   2      else if(((text[i]>=0xa1) &&(text[i]<=0xa3))&&(text[i+1]>=0xa1))
+C51 COMPILER V9.57.0.0   LCD12864_215Z_ZIKU                                                03/03/2021 15:30:54 PAGE 7   
+
+ 364   2      {
+ 365   3      //国标简体（GB2312）15x16 点的字符在字库IC 中的地址由以下公式来计算：
+ 366   3      //Address = ((MSB - 0xa1) * 94 + (LSB - 0xA1))*32+ BaseAdd;BaseAdd=0
+ 367   3      //由于担心8 位单片机有乘法溢出问题，所以分三部取地址
+ 368   3      fontaddr = (text[i]- 0xa1)*94;
+ 369   3      fontaddr += (text[i+1]-0xa1);
+ 370   3      fontaddr = (ulong)(fontaddr*32);
+ 371   3      get_and_write_16x16(fontaddr,page,column); //从指定地址读出数据写到液晶屏指定（page,column)座标中
+ 372   3      i+=2;
+ 373   3      column+=16;
+ 374   3      }
+ 375   2      else if((text[i]>=0x20) &&(text[i]<=0x7e))
+ 376   2      {
+ 377   3      fontaddr = (text[i]- 0x20);
+ 378   3      fontaddr = (unsigned long)(fontaddr*16);
+ 379   3      fontaddr = (unsigned long)(fontaddr+0X3CF80);
+ 380   3      get_and_write_8x16(fontaddr,page,column); //从指定地址读出数据写到液晶屏指定（page,column)座标中
+ 381   3      i+=1;
+ 382   3      column+=8;
+ 383   3      }
+ 384   2      else
+ 385   2      i++;
+ 386   2      }
+ 387   1      }
+ 388          
+ 389          void display_string_5x8(uchar page,uchar column,uchar *text)
+ 390          {
+ 391   1      unsigned char i= 0;
+ 392   1      while((text[i]>0x00))
+ 393   1      {
+ 394   2      if((text[i]>=0x20) &&(text[i]<=0x7E))
+ 395   2      {
+ 396   3      fontaddr = (text[i]- 0x20);
+ 397   3      fontaddr = (unsigned long)(fontaddr*8);
+ 398   3      fontaddr = (unsigned long)(fontaddr+0x3bfc0);
+ 399   3      get_and_write_5x8(fontaddr,page,column); //从指定地址读出数据写到液晶屏指定（page,column)座标中
+ 400   3      i+=1;
+ 401   3      column+=6;
+ 402   3      }
+ 403   2      else
+ 404   2      i++;
+ 405   2      }
+ 406   1      }
+ 407          
+ 408          //===============main program===================
+ 409          
+ 410          void main(void)
+ 411          {
+ 412   1      //Rom_CS=1;//CSA,   //L 有效,字库片选
+ 413   1      //LCD_CS1=1;//CSB,    //L 有效,屏片选
+ 414   1      //LCD_RES=1;//RST,    //L 有效,屏复位
+ 415   1      //LCD_RS=1;//A0,    //L:command; H:data,命令/数据
+ 416   1      //LCD_SCL=1;//SCK,时钟   &字库IC的SCK
+ 417   1      //LCD_SID=1;//MISO,数据输入 &字库IC的SI
+ 418   1      //Rom_OUT=1;//MOSI,数据输出
+ 419   1      //BL=1;   //L 有效,背光控制
+ 420   1      BL = 0;
+ 421   1      while(1)
+ 422   1      {
+ 423   2      initial_lcd();
+ 424   2      clear_screen(); //clear all dots
+ 425   2      delay(1000);
+C51 COMPILER V9.57.0.0   LCD12864_215Z_ZIKU                                                03/03/2021 15:30:54 PAGE 8   
+
+ 426   2      
+ 427   2      fill_screen();
+ 428   2      delay(1000);
+ 429   2      
+ 430   2      //display_128x64(bmp1);
+ 431   2      //delay(1000);
+ 432   2      clear_screen();
+ 433   2      delay(1000);
+ 434   2      display_GB2312_string(1,1,"中华崛起迎盛业，"); //在第1 页，第1 列，显示一串16x16 点阵汉字或8x16 的ASCII 字
+ 435   2      display_GB2312_string(3,1,"巨龙腾飞颂党恩！"); //显示一串16x16 点阵汉字或8x16 的ASCII 字.以下雷同
+ 436   2      display_GB2312_string(5,1,"建党99载,");
+ 437   2      display_GB2312_string(7,1,"愿党光辉万年长。");
+ 438   2      delay(1000);
+ 439   2      buzzer=0;
+ 440   2      delay(1000);
+ 441   2      buzzer=1;
+ 442   2      clear_screen();
+ 443   2      display_GB2312_string(1,1,"  **   **  N C");
+ 444   2      display_GB2312_string(3,1," *   *   * U E");
+ 445   2      display_GB2312_string(5,1,"  *     *  A I");
+ 446   2      display_GB2312_string(7,1,"     *     A E");
+ 447   2      delay(1000);
+ 448   2      buzzer=0;
+ 449   2      delay(1000);
+ 450   2      buzzer=1;
+ 451   2      clear_screen();
+ 452   2      display_GB2312_string(1,1,"");
+ 453   2      display_GB2312_string(3,1,"    by");
+ 454   2      display_GB2312_string(5,1,"      ---伍雨童");
+ 455   2      display_GB2312_string(7,1,"        2020.12");
+ 456   2      delay(3000);
+ 457   2      //display_128x64(bmp1);
+ 458   2      //delay(1000);
+ 459   2      //clear_screen();
+ 460   2      //delay(1000);
+ 461   2      //display_GB2312_string(1,1,"12864,带中文字库"); //在第1 页，第1 列，显示一串16x16 点阵汉字或8x16 的ASCII 
+             -字
+ 462   2      //display_GB2312_string(3,1,"16X16 简体汉字库,"); //显示一串16x16 点阵汉字或8x16 的ASCII 字.以下雷同
+ 463   2      //display_GB2312_string(5,1,"或8X16 点阵ASCII,");
+ 464   2      //display_GB2312_string(7,1,"或5x8 点阵ASCII 码");
+ 465   2      //delay(3000);
+ 466   2      //clear_screen();
+ 467   2      //display_GB2312_string(1,1,"深圳市金逸晨电子");
+ 468   2      //display_GB2312_string(3,1,"   欢  迎  您   ");
+ 469   2      //display_GB2312_string(5,1,"专业生产LCD模块 ");
+ 470   2      //display_GB2312_string(7,1,"优质服务品质保证");
+ 471   2      //delay(3000);
+ 472   2      //display_GB2312_string(1,1,"GB2312 简体字库及");
+ 473   2      //display_GB2312_string(3,1,"有图型功能，可自");
+ 474   2      //display_GB2312_string(5,1,"编大字、图像、生");
+ 475   2      //display_GB2312_string(7,1,"僻字等，例如： ");
+ 476   2      //display_graphic_16x16(7,97,jiong1); //在第7页，第81列显示单个自编生僻汉字“囧”
+ 477   2      //display_graphic_16x16(7,113,lei1); //显示单个自编生僻汉字"畾“
+ 478   2      //delay(3000);
+ 479   2      //clear_screen();
+ 480   2      //display_string_5x8(1,33,"215Z_ziku,128X64");
+ 481   2      //display_string_5x8(2,33,"IC:UC1701 SPI");
+ 482   2      //display_string_5x8(3,1,"<!@#$%^&*()_-+]/;.,?[");//在第3 页，第1 列，显示一串5x8 点阵的ASCII 字
+ 483   2      //display_string_5x8(4,1,"GM electronics Co.,");//显示一串5x8 点阵的ASCII 字
+ 484   2      //display_string_5x8(5,1,"Ltd.www.goldenmorning");//显示一串5x8 点阵的ASCII 字
+ 485   2      //display_string_5x8(6,1,"ss.com. China ShenZhen ");//显示一串5x8 点阵的ASCII 字
+ 486   2      //display_string_5x8(7,1,"TEL:0755-29450035 ");//显示一串5x8 点阵的ASCII 字
+C51 COMPILER V9.57.0.0   LCD12864_215Z_ZIKU                                                03/03/2021 15:30:54 PAGE 9   
+
+ 487   2      //display_string_5x8(8,1,"FAX:0755-29450036 ");//显示一串5x8 点阵的ASCII 字
+ 488   2      //delay(3000);
+ 489   2      }
+ 490   1      }
+ 491          
+ 492          uchar code bmp1[]={
+ 493          //--  调入了一幅图像：gycLOGO.bmp  --//
+ 494          //--  宽度x高度=128x64  --//
+ 495          0XFF,0X01,0X01,0X01,0X01,0X01,0X01,0X01,0X01,0X01,0X01,0X01,0X01,0X01,0X01,0X01,
+ 496          0X01,0X01,0X01,0X01,0X01,0X01,0X01,0X01,0X01,0X01,0X01,0X01,0X01,0X01,0X81,0X81,
+ 497          0X81,0XC1,0XE1,0XE1,0XE1,0XF1,0XF1,0XF9,0XF9,0XF9,0XF9,0XF9,0XF9,0XF9,0XF9,0X79,
+ 498          0X39,0X39,0X39,0X39,0X3D,0X3D,0X1D,0X1D,0X1D,0X1D,0X1D,0X1D,0X1D,0X1D,0X1D,0X1D,
+ 499          0X1D,0X1D,0X1D,0X1D,0X1D,0X1D,0X1D,0X1D,0X1D,0X1D,0X19,0X19,0X19,0X19,0X39,0X39,
+ 500          0X39,0X39,0X31,0X31,0X71,0X61,0X61,0X61,0XE1,0XC1,0XC1,0XC1,0X81,0X81,0X81,0X81,
+ 501          0X01,0X01,0X01,0X01,0X01,0X01,0X01,0X01,0X01,0X01,0X01,0X01,0X01,0X01,0X01,0X01,
+ 502          0X01,0X01,0X01,0X01,0X01,0X01,0X01,0X01,0X01,0X01,0X01,0X01,0X01,0X01,0X01,0XFF,
+ 503          0XFF,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,
+ 504          0X00,0X80,0XC0,0XC0,0XE0,0XF0,0XF0,0X78,0X38,0X1C,0X1C,0X0E,0X0E,0X07,0X03,0X03,
+ 505          0X01,0X01,0X01,0X01,0X01,0X01,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0X00,0X00,0X00,
+ 506          0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,
+ 507          0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X80,0X80,0X80,0X80,
+ 508          0X80,0X80,0X80,0X80,0X80,0X80,0X80,0X80,0X80,0X80,0X81,0X81,0X81,0X83,0X83,0X87,
+ 509          0X87,0X86,0X8E,0X8C,0X9C,0X98,0XB8,0X70,0XE0,0XE0,0XC0,0X80,0X00,0X00,0X00,0X00,
+ 510          0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0XFF,
+ 511          0XFF,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X80,0XE0,0XF8,0XFE,
+ 512          0XFF,0X1F,0X1F,0X03,0X01,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,
+ 513          0X00,0X00,0X00,0X00,0X00,0X00,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0XFF,0X30,0X70,0XF0,
+ 514          0XF0,0XF0,0XF0,0XF0,0XF0,0X90,0X10,0X10,0X10,0X10,0X10,0X00,0X00,0X00,0X00,0XC0,
+ 515          0XE0,0XF0,0XF0,0XF8,0XFC,0XFC,0XFE,0X3E,0X1E,0X1E,0X1F,0X17,0X37,0X33,0XB1,0XF1,
+ 516          0XF1,0XF1,0X71,0X31,0X31,0X31,0X11,0X11,0X11,0X01,0X01,0X01,0X01,0X01,0X01,0X01,
+ 517          0X01,0X01,0X01,0X01,0X01,0X01,0X01,0X03,0X03,0X07,0X07,0X07,0X1F,0XFE,0XFC,0XF0,
+ 518          0XC0,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0XFF,
+ 519          0XFF,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X03,0X0F,0X3F,0XFF,
+ 520          0XFF,0XF0,0XC0,0X80,0X80,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,
+ 521          0X00,0X00,0X80,0X80,0X80,0XC0,0XFF,0XFF,0XFF,0XFF,0X7F,0X1F,0X03,0X00,0X00,0X00,
+ 522          0X00,0X01,0X01,0X03,0X07,0X0F,0X1F,0X3F,0X3E,0X7C,0XF8,0XF8,0XF0,0XE0,0XC0,0X81,
+ 523          0X03,0X07,0X8F,0XCF,0XDF,0XFF,0XFF,0X7C,0X7C,0X7C,0X7C,0X7E,0X6F,0X67,0X63,0X61,
+ 524          0XE0,0XE0,0XC0,0XC0,0XC0,0XC0,0XC0,0XC0,0XC0,0XC0,0XC0,0XC0,0XC0,0XC0,0XC0,0XC0,
+ 525          0XC0,0XE0,0XE0,0XE0,0X60,0X60,0X60,0X60,0X60,0XF0,0XF0,0XE8,0XF8,0XFF,0XFF,0X1F,
+ 526          0X07,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0XFF,
+ 527          0XFF,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,
+ 528          0X01,0X03,0X07,0X07,0X0F,0X1F,0X1E,0X3C,0X7B,0X7B,0X77,0XF7,0XE7,0XC6,0XC6,0XC7,
+ 529          0X87,0X83,0X03,0X03,0X03,0X03,0X01,0X01,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,
+ 530          0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X01,0X03,0XFF,0XFF,0XFF,
+ 531          0XFF,0XFF,0XFF,0X03,0X01,0X01,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,
+ 532          0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X80,0X80,0XC0,0XC0,
+ 533          0XC0,0XE0,0XE0,0XF0,0XF0,0X78,0X7C,0X3E,0X3F,0X1F,0X0F,0X07,0X03,0X01,0X00,0X00,
+ 534          0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0XFF,
+ 535          0XFF,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,
+ 536          0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X01,0X03,0X03,
+ 537          0X07,0X07,0X0F,0X0F,0X0F,0X1E,0X1E,0X1E,0X1E,0X1C,0X1C,0X1C,0X1C,0X38,0X38,0X38,
+ 538          0X78,0X78,0X70,0X70,0X70,0X70,0X70,0X70,0X70,0X70,0X70,0X70,0X70,0X7F,0X7F,0X7F,
+ 539          0X7F,0X7F,0X7F,0X78,0X78,0X78,0X78,0X78,0X78,0X78,0X78,0X38,0X38,0X38,0X38,0X38,
+ 540          0X38,0X38,0X38,0X3C,0X3C,0X1C,0X1C,0X0C,0X0E,0X0E,0X07,0X07,0X07,0X07,0X03,0X83,
+ 541          0X01,0X01,0X81,0X00,0X40,0X40,0XC0,0XC0,0XC0,0X80,0X00,0XC0,0XC0,0XC0,0XC0,0X80,
+ 542          0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0XFF,
+ 543          0XFF,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X80,0X80,0XC0,0XE0,
+ 544          0X70,0X38,0X38,0XBC,0XEE,0XF7,0XF7,0XF3,0XF3,0XF7,0XF6,0XA4,0X8C,0X0C,0X18,0X18,
+ 545          0X30,0X30,0X30,0X60,0X60,0X60,0X60,0X60,0XC0,0XC0,0XC0,0XC0,0X80,0X00,0X00,0X00,
+ 546          0X00,0X60,0XE0,0XC0,0XDC,0XDC,0XCC,0XC8,0X08,0X00,0X00,0X20,0XE0,0XE4,0XE6,0XB7,
+ 547          0XB7,0XFB,0XFB,0XFF,0XDE,0XD6,0X74,0XF0,0XF0,0X10,0X00,0X00,0X00,0X00,0X00,0X00,
+ 548          0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X10,0X90,0XD1,
+C51 COMPILER V9.57.0.0   LCD12864_215Z_ZIKU                                                03/03/2021 15:30:54 PAGE 10  
+
+ 549          0XD3,0X77,0X7F,0X9E,0X8F,0XFF,0XEF,0XFF,0X7F,0X7E,0X3E,0X2F,0X87,0XC7,0XC1,0XC0,
+ 550          0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0X00,0XFF,
+ 551          0XFF,0X80,0X80,0X80,0X80,0X80,0X80,0X80,0X80,0X86,0X86,0X83,0X83,0X81,0X80,0X80,
+ 552          0XA0,0XA0,0XAF,0XAF,0XBD,0XB5,0XB1,0XBF,0XBF,0XBF,0XBC,0XB6,0XB6,0XB2,0XB2,0XB0,
+ 553          0XB0,0XB0,0X80,0X80,0X80,0X80,0X80,0X80,0X80,0X80,0X80,0X80,0X80,0X80,0X80,0X80,
+ 554          0X80,0X80,0X88,0X88,0X8B,0X8B,0X8E,0X8E,0X9C,0X98,0X98,0X9C,0X9C,0X9F,0X9B,0X9B,
+ 555          0X91,0XB0,0XB7,0XB7,0XB5,0XB4,0XB4,0XB7,0XB7,0XB5,0XB4,0XB4,0XB4,0XB0,0XB0,0XB0,
+ 556          0XB0,0X80,0X80,0X80,0X80,0X80,0X80,0X98,0X98,0X9C,0X8C,0X8E,0X87,0X83,0X83,0X81,
+ 557          0X80,0X80,0X86,0X8F,0X9F,0X99,0X99,0X99,0X89,0X8D,0X85,0X83,0X83,0X87,0X87,0X86,
+ 558          0X8E,0X8E,0X8C,0X8C,0X8C,0X8C,0X8C,0X8C,0X88,0X80,0X80,0X80,0X80,0X80,0X80,0XFF,
+ 559          
+ 560          
+ 561          };
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1844    ----
+   CONSTANT SIZE    =   1249    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     57      64
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

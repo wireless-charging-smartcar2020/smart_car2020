@@ -1,0 +1,8 @@
+".\Objects\STARTUP.obj",
+".\Objects\main.obj",
+".\Objects\uart.obj",
+".\Objects\pwm.obj",
+".\Objects\adc.obj",
+".\Objects\sensor.obj" 
+TO ".\Objects\main_control" 
+PRINT(".\Listings\main_control.m51") RAMSIZE(256) 

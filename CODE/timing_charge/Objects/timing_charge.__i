@@ -1,0 +1,1 @@
+"timing_charge.c" OPTIMIZE (8,SPEED) BROWSE INCDIR(..\timing_charge) DEBUG OBJECTEXTEND PRINT(.\Listings\timing_charge.lst) TABS (2) OBJECT(.\Objects\timing_charge.obj)
